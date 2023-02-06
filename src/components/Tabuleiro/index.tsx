@@ -10,7 +10,7 @@ export function Tabuleiro() {
 
     // Seta as variáveis de controle do jogo
     let LetrasCoordenadas: string[] = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-    let JogadorAtual = useRef(1);
+    let JogadorAtual = useRef(1);                   
     let MovimentosPossiveis = useRef<MovimentoPossivelInterface[]>([]);
                 
     // Renderiza os elementos da tela
@@ -158,7 +158,7 @@ export function Tabuleiro() {
 
             }        
 
-            for(let y = InicioIndice; y < 8; y = y + 2) {
+            for(let y = InicioIndice - 1; y < 8; y = y + 2) {
 
                 PecasMock.push({
                     Id: IdCount ++,
@@ -194,9 +194,27 @@ export function Tabuleiro() {
         MovimentosPossiveis.current = [];
 
     }
+
+    // Função para alterar a cor de uma casa
+    function AlterarCorCasa(foundedCasa: CasaInterface, cor: string, movimentoPossivel: boolean = false): void {
+
+        SetCasas(Casas.map(casa => {
+
+            if(casa.Id === foundedCasa.Id) {
+
+                casa.CorAtual = cor;
+                casa.MovimentoPeca = movimentoPossivel;
+
+            }
+
+            return casa;
+
+        }));
+
+    }
     
     // Função para verificar a possibilidade de movimento da peça
-    function VerificarPossivelMovimento(CoordenadaX: string, CoordenadaY: string): boolean {
+    function VerificaPecaAliadaOcupandoCasa(CoordenadaX: string, CoordenadaY: string): boolean {
 
         if(Pecas.some(peca=> peca.CoordenadaX === CoordenadaX && peca.CoordenadaY === CoordenadaY && peca.Jogador === JogadorAtual.current)) {
 
@@ -208,29 +226,24 @@ export function Tabuleiro() {
 
     }
 
-    // Verifica se um dos movimentos possíveis pode comer uma peça do adversário
-    function AdicionarMovimento(PecaSelecionadaId: number, CoordenadaX: string, CoordenadaY: string, Direcao: EDirecao): MovimentoPossivelInterface {
+    // Verifica se existe alguma peça adversária na coordenada
+    function VerificarPecaAdversariaOcupandoCasa(CoordenadaX: string, CoordenadaY: string): PecaInterface | undefined {
+
+        return Pecas.find(peca=> peca.CoordenadaX === CoordenadaX && peca.CoordenadaY === CoordenadaY && peca.Jogador !== JogadorAtual.current);        
+
+    }
+
+    // Função para adicionar um possível movimento para uma peça selecionada
+    function AdicionarMovimento(PecaSelecionadaId: number, CoordenadaX: string, CoordenadaY: string, Direcao: EDirecao): MovimentoPossivelInterface | null {
 
         // Verifica se existe uma peça adversária em uma das casas onde a peça poderá se mover
-        const FoundedPecaAdversaria = Pecas.find(peca=> peca.CoordenadaX === CoordenadaX && peca.CoordenadaY === CoordenadaY && peca.Jogador !== JogadorAtual.current);
-        const FoundedCasa = Casas.find(casa => casa.CoordenadaX === CoordenadaX && casa.CoordenadaY === CoordenadaY);
+        const FoundedPecaAdversaria = VerificarPecaAdversariaOcupandoCasa(CoordenadaX, CoordenadaY);
 
-        // Verifica se a peça adversária não está no canto do tabuleiro tanto do lado direito quanto do lado esquerdo
-        if(FoundedPecaAdversaria && FoundedCasa && 
+        // Verifica se existe uma peça adversária na casa a frente e se a mesma não está no canto do tabuleiro
+        if(FoundedPecaAdversaria && 
             (LetrasCoordenadas.indexOf(FoundedPecaAdversaria.CoordenadaX) > 0 && LetrasCoordenadas.indexOf(FoundedPecaAdversaria.CoordenadaX) < LetrasCoordenadas.length - 1 )) {            
-
-                // Troca a cor da casa da peça adversária para amarelo
-                SetCasas(Casas.map(casa => {
-
-                    if(casa.Id === FoundedCasa.Id) {
-                        casa.CorAtual = 'yellow';
-                    }
-
-                    return casa;
-
-                }))
-
-                // Verifica o lado que a peça adversária está da peça selecionada e troca o movimento possível da peça selecionado para atrás da peça advesária
+                
+                // Verifica se a casa atrás da peça adversária está livre               
                 if(Direcao === EDirecao.Esquerda) {
 
                     CoordenadaX = LetrasCoordenadas[LetrasCoordenadas.indexOf(FoundedPecaAdversaria.CoordenadaX) - 1];
@@ -243,36 +256,47 @@ export function Tabuleiro() {
 
                 }
                 
-                CoordenadaY = (parseInt(CoordenadaY) + 1).toString();
+                CoordenadaY = (
+                    JogadorAtual.current === 1 ? 
+                    parseInt(CoordenadaY) + 1 : parseInt(CoordenadaY) - 1
+                ).toString();
+
+                const foundedCasa = Casas.find(casa => casa.CoordenadaX === FoundedPecaAdversaria.CoordenadaX && casa.CoordenadaY === FoundedPecaAdversaria.CoordenadaY);
+                if(!VerificarPecaAdversariaOcupandoCasa(CoordenadaX, CoordenadaY) && foundedCasa) {
+
+                    // Troca a cor da casa da peça adversária para amarelo
+                    AlterarCorCasa(foundedCasa, 'yellow');                  
+
+                }
+
+                else {
+                    return null;
+                }
 
         }
 
         // Troca a cor das casas onde será possível o movimento da peça selecionada para verde
-        SetCasas(Casas.map(casa => {
+        var foundedCasa = Casas.find(casa=> casa.CoordenadaX === CoordenadaX && casa.CoordenadaY === CoordenadaY);
+        if(foundedCasa) {
 
-            if(casa.CoordenadaX === CoordenadaX && casa.CoordenadaY === CoordenadaY) {
+            AlterarCorCasa(foundedCasa, 'green', true);
+    
+            // retorna o movimento possível da peça selecionada
+            return {
+                PecaSelecionadaId,
+                RemoverPecaId: FoundedPecaAdversaria?.Id,
+                CoordenadaX,
+                CoordenadaY
+            };
 
-                casa.CorAtual = 'green';
-                casa.MovimentoPeca = true;
-
-            }
-
-            return casa;
-
-        }));
-
-        // retorna o movimento possível da peça selecionada
-        return {
-            PecaSelecionadaId,
-            RemoverPecaId: FoundedPecaAdversaria?.Id,
-            CoordenadaX,
-            CoordenadaY
-        };
+        }
+       
+        return null;
 
     }
 
     // Função para destacar possibilidade de movimentos
-    function DestacarPossibilidadeMovimento(PecaSelecionada: PecaInterface) {
+    function DestacarPossibilidadeMovimento(PecaSelecionada: PecaInterface): void {
         
         // Verifica se a peça selecionada pertence ao jogador que possuí a vez
         if(PecaSelecionada.Jogador !== JogadorAtual.current) {
@@ -290,20 +314,28 @@ export function Tabuleiro() {
 
         // Seta as coordenada possível a esquerda da peça selecionada
         let CoordenadaXPossivel: string = LetrasCoordenadas[IndiceX - 1];
-        let CoordenadaYPossivel: string =  (parseInt(PecaSelecionada.CoordenadaY) + 1).toString();
+        let CoordenadaYPossivel: string =  ( 
+            JogadorAtual.current === 1 ? 
+            parseInt(PecaSelecionada.CoordenadaY) + 1 : parseInt(PecaSelecionada.CoordenadaY) - 1 
+        ).toString();
 
         // Verifica se a coordenada não está no limite a esquerda do tabuleiro ou se existe uma peça do próprio jogador ocupando a casa
-        if(IndiceX > 0 && VerificarPossivelMovimento(CoordenadaXPossivel, CoordenadaYPossivel)) {
-            MovimentosPossiveis.current.push(AdicionarMovimento(PecaSelecionada.Id, CoordenadaXPossivel, CoordenadaYPossivel, EDirecao.Esquerda));
+        let MovimentoPossivel = AdicionarMovimento(PecaSelecionada.Id, CoordenadaXPossivel, CoordenadaYPossivel, EDirecao.Esquerda);
+        if(IndiceX > 0 && VerificaPecaAliadaOcupandoCasa(CoordenadaXPossivel, CoordenadaYPossivel) && MovimentoPossivel) {
+            MovimentosPossiveis.current.push(MovimentoPossivel);
         }
 
         // Seta as coordenada possível a direita da peça selecionada
         CoordenadaXPossivel = LetrasCoordenadas[IndiceX + 1];
-        CoordenadaYPossivel =  (parseInt(PecaSelecionada.CoordenadaY) + 1).toString();
+        CoordenadaYPossivel = ( 
+            JogadorAtual.current === 1 ? 
+            parseInt(PecaSelecionada.CoordenadaY) + 1 : parseInt(PecaSelecionada.CoordenadaY) - 1 
+        ).toString();
 
         // Verifica se a coordenada não está no limite a esquerda do tabuleiro ou se existe uma peça do próprio jogador ocupando a casa
-        if(IndiceX < LetrasCoordenadas.length - 1 && VerificarPossivelMovimento(CoordenadaXPossivel, CoordenadaYPossivel)) {   
-            MovimentosPossiveis.current.push(AdicionarMovimento(PecaSelecionada.Id, CoordenadaXPossivel, CoordenadaYPossivel, EDirecao.Direita));
+        MovimentoPossivel = AdicionarMovimento(PecaSelecionada.Id, CoordenadaXPossivel, CoordenadaYPossivel, EDirecao.Direita);
+        if(IndiceX < LetrasCoordenadas.length - 1 && VerificaPecaAliadaOcupandoCasa(CoordenadaXPossivel, CoordenadaYPossivel) && MovimentoPossivel) {   
+            MovimentosPossiveis.current.push(MovimentoPossivel);
         }
 
         // Caso a peça não possua nenhum movimento possível no momento faz um alerta ao jogador
@@ -342,7 +374,10 @@ export function Tabuleiro() {
 
                          // Seta a nova posição da peça selecionada
                          peca.CoordenadaX = MovimentoSelecionado.CoordenadaX;
-                         peca.CoordenadaY = MovimentoSelecionado.CoordenadaY;          
+                         peca.CoordenadaY = MovimentoSelecionado.CoordenadaY;   
+                         
+                        // Verifica se o próximo jogador terá algum movimento obrigatório
+                        VerificarMovimentoObrigatorio(peca);
 
                     }
 
@@ -365,6 +400,74 @@ export function Tabuleiro() {
 
         }       
 
+    }
+
+    // Função para verificar se o próximo jogador terá um movimento obrigatório para realizar
+    function VerificarMovimentoObrigatorio(PecaSelecionada: PecaInterface): void {
+
+        // Verifica se a peça não está no limite a esquerda do tabuleiro
+        const IndiceX = LetrasCoordenadas.indexOf(PecaSelecionada.CoordenadaX);
+        if(IndiceX > 0)
+        {
+
+           // Seta as coordenada atrás da peça selecionada a direita
+           let CoordenadaXPossivel: string = LetrasCoordenadas[IndiceX - 1];
+           let CoordenadaYPossivel: string =  ( 
+               JogadorAtual.current === 1 ? 
+               parseInt(PecaSelecionada.CoordenadaY) - 1 : parseInt(PecaSelecionada.CoordenadaY) + 1 
+           ).toString();
+
+           // Verifica não existe nenhuma peça aliada atrás
+           if(VerificaPecaAliadaOcupandoCasa(CoordenadaXPossivel, CoordenadaYPossivel)) {
+
+                // Verifica se existe alguma peça inimiga a direita da peça selecionada
+                CoordenadaXPossivel = LetrasCoordenadas[IndiceX + 1];
+                CoordenadaYPossivel = ( 
+                    JogadorAtual.current === 1 ? 
+                    parseInt(PecaSelecionada.CoordenadaY) + 1 : parseInt(PecaSelecionada.CoordenadaY) - 1 
+                ).toString();
+
+                if(VerificarPecaAdversariaOcupandoCasa(CoordenadaXPossivel, CoordenadaYPossivel)) {
+
+                    // Adiciona um movimento obrigatório para o adversário
+                    alert('Movimento obrigatório detectado');
+
+                }
+
+           }
+
+        }
+
+        // Verifica se a peça não está no limite a esquerda do tabuleiro
+        if(IndiceX < LetrasCoordenadas.length - 1) {
+
+            let CoordenadaXPossivel = LetrasCoordenadas[IndiceX + 1];
+            let CoordenadaYPossivel = ( 
+                JogadorAtual.current === 1 ? 
+                parseInt(PecaSelecionada.CoordenadaY) - 1 : parseInt(PecaSelecionada.CoordenadaY) + 1 
+            ).toString();
+
+            // Verifica não existe nenhuma peça aliada atrás
+            if(VerificaPecaAliadaOcupandoCasa(CoordenadaXPossivel, CoordenadaYPossivel)) {
+               
+                // Verifica se existe alguma peça inimiga a direita da peça selecionada
+                CoordenadaXPossivel = LetrasCoordenadas[IndiceX - 1];
+                CoordenadaYPossivel = ( 
+                    JogadorAtual.current === 1 ? 
+                    parseInt(PecaSelecionada.CoordenadaY) + 1 : parseInt(PecaSelecionada.CoordenadaY) - 1 
+                ).toString();
+
+                if(VerificarPecaAdversariaOcupandoCasa(CoordenadaXPossivel, CoordenadaYPossivel)) {
+                    
+                    // Adiciona um movimento obrigatório para o adversário
+                    alert('Movimento obrigatório detectado');
+
+                }
+
+            }
+
+        }         
+   
     }
 
 }
